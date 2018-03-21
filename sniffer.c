@@ -1,7 +1,7 @@
 /*
  * sniffer.c
  *
- * Last edit: 03/20/2018
+ * Last edit: 03/21/2018
  * Authors: Noah Williamson, Robert Williams
  * Course: CS371
  * Project 1
@@ -19,6 +19,7 @@
 #include<netinet/tcp.h>
 #include<netinet/ip.h>
 
+/* CONSTANTS */
 #define MAXSIZE 128   // max size for buffers
 
 /* FUNCTION PROTOTYPES */
