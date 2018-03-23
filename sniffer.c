@@ -7,25 +7,27 @@
  * Project 1
  */
 
+#include <pcap.h> // libpcap library
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <pcap.h> // libpcap library
 #include <sys/socket.h>
 #include <arpa/inet.h>
+#include <netinet/ip.h>
 #include <net/ethernet.h>
 #include<netinet/ip_icmp.h>
 #include<netinet/udp.h>
 #include<netinet/tcp.h>
-#include<netinet/ip.h>
+
+#define MAXSIZE 100
 
 /* FUNCTION PROTOTYPES */
 void got_packet(u_char *, const struct pcap_pkthdr *, const u_char *);
-void print_tcp_packet(const u_char *, int);
-void print_udp_packet(const u_char *, int);
-void print_icmp_packet(const u_char *, int);
-void print_ethernet_header(const u_char *, int);
-void print_ip_header(const u_char *, int);
+//void print_tcp_packet(const u_char *, int);
+//void print_udp_packet(const u_char *, int);
+//void print_icmp_packet(const u_char *, int);
+//void print_ethernet_header(const u_char *, int);
+//void print_ip_header(const u_char *, int);
 void print_data(const u_char *, int); 
 
 /* GLOBALS */
@@ -41,14 +43,14 @@ int other_count = 0, total_packet_count = 0;
 int main(int argc, char** argv) {
   pcap_if_t *device;
   pcap_t *handle;
-  char errbuff[PCAP_ERRBUFF_SIZE];
-  char *device_name;
+  char errbuff[MAXSIZE];
+  char device_name[] = "en0";
   
-  device_name = pcap_lookupdev(errbuff);
+  //device_name = pcap_lookupdev(errbuff);
 
   printf("DEV: %s\n", device_name); // sniffing on this device
   
-  handle = pcap_open_live(device_name, 65536, 1, 0, errbuf);
+  handle = pcap_open_live(device_name, 65536, 1, 0, errbuff);
   if(handle == NULL){ // check for error in opening device for sniffing
     fprintf(stderr, "Could not open device %s : %s\n", device_name, errbuff);
     exit(1);
@@ -74,12 +76,12 @@ void got_packet(u_char *args, const struct pcap_pkthdr *header,
   
   ++total_packet_count;
 
-  struct iphdr *iph = (struct iphdr*)(buffer + sizeof(struct ethhdr));
+  struct ip *iph = (struct ip*)buffer;
 
-  switch(iph->protocol){
+  switch(iph->ip_p){
     case 1: // icmp protocol
       ++icmp_count;
-      print_icmp_packet(buffer, size);
+      print_data(buffer, size);
       break;
     
     case 2: // igmp protocol
@@ -88,12 +90,12 @@ void got_packet(u_char *args, const struct pcap_pkthdr *header,
     
     case 6: // tcp protocol
       ++tcp_count;
-      print_tcp_packet(buffer, size);
+      print_data(buffer, size);
       break;
 
     case 17:  // udp protocol
       ++udp_count;
-      print_udp_packet(buffer, size);
+      print_data(buffer, size);
       break;
 
     default:  // some other protocol
@@ -110,7 +112,7 @@ void got_packet(u_char *args, const struct pcap_pkthdr *header,
 /*
  *
  *
- */
+ 
 void print_ethernet_header(const u_char *Buffer, int Size){
     struct ethhdr *eth = (struct ethhdr *)Buffer;
 
@@ -126,10 +128,6 @@ void print_ethernet_header(const u_char *Buffer, int Size){
         (unsigned short)eth->h_proto);
 }
 
-/*
- *
- *
- */
 void print_ip_header(const u_char * Buffer, int Size){
     print_ethernet_header(Buffer , Size);
     unsigned short iphdrlen;
@@ -162,10 +160,6 @@ void print_ip_header(const u_char * Buffer, int Size){
     fprintf(logfile , "   |-Destination IP   : %s\n", inet_ntoa(dest.sin_addr));
 }
 
-/*
- *
- *
- */
 void print_tcp_packet(const u_char * Buffer, int Size){
     unsigned short iphdrlen;
 
@@ -212,10 +206,6 @@ void print_tcp_packet(const u_char * Buffer, int Size){
     fprintf(logfile , "\n\n\n");
 }
 
-/*
- *
- *
- */
 void print_udp_packet(const u_char *Buffer , int Size){
     unsigned short iphdrlen;
 
@@ -295,11 +285,9 @@ void print_icmp_packet(const u_char * Buffer , int Size)
 
     fprintf(logfile , "\n\n\n");
 }
+*/
 
 /*
- *
- *
- */
 void print_data (const u_char * data , int Size){
     int i, j;
     
@@ -338,4 +326,10 @@ void print_data (const u_char * data , int Size){
             fprintf(logfile,  "\n" );
         }
     }
+}
+*/
+
+void print_data(const u_char *packet, int size){
+  printf("Got packet.\n");
+  return;
 }
