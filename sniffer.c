@@ -33,36 +33,51 @@ void print_data(const u_char *, int);
 /* GLOBALS */
 FILE *logfile;
 struct sockaddr_in source, dest;
-int tcp_count = 0, udp_count = 0, icmp_count = 0, igmp_count = 0;
-int other_count = 0, total_packet_count = 0; 
+int tcp_count = 0, udp_count = 0, other_count = 0, total_count = 0;
 
 /*
- *
+ * main function
  *
  */
 int main(int argc, char** argv) {
   pcap_if_t *device;
   pcap_t *handle;
+  struct bpf_program fp;
+  bpf_u_int32 maskp;
+  bpf_u_int32 netp;
   char errbuff[MAXSIZE];
-  char device_name[] = "en0";
+  char device_name[] = "en0"; // wifi device name on Mac
   
-  //device_name = pcap_lookupdev(errbuff);
+  pcap_lookupnet(device_name, &netp, &maskp, errbuff);
 
-  printf("DEV: %s\n", device_name); // sniffing on this device
+  printf("Sniffing on device: %s\n", device_name); // print device
   
-  handle = pcap_open_live(device_name, 65536, 1, 0, errbuff);
+  // open device
+  handle = pcap_open_live(device_name, 65536, 1, 300000, errbuff);
   if(handle == NULL){ // check for error in opening device for sniffing
-    fprintf(stderr, "Could not open device %s : %s\n", device_name, errbuff);
+    fprintf(stderr, "Could not open device %s: %s\n", device_name, errbuff);
     exit(1);
   }
 
-  logfile = fopen("log.txt", "w");
+  logfile = fopen("log.txt", "w"); // start logs
   if(logfile == NULL){  // check for errror in file creation/opening
     printf("Error in creating file.");
   }
 
+  // compile and set filters
+  if(pcap_compile(handle, &fp, "ip", 0, netp) == -1){
+    fprintf(stderr, "Couldn't parse filter: %s\n", pcap_geterr(handle));
+    return(2);
+  }
+
+  if(pcap_setfilter(handle, &fp) == -1){
+    fprintf(stderr, "Couldn't use filter: %s\n", pcap_geterr(handle));
+    return(2);
+  }
+
   // start sniffing loop
   pcap_loop(handle, -1, got_packet, NULL);
+  
   return 0;
 }
 
@@ -72,40 +87,31 @@ int main(int argc, char** argv) {
  */
 void got_packet(u_char *args, const struct pcap_pkthdr *header,
                                   const u_char *buffer) {
-  int size = header->len;
+  int size = header->len; // packet size
   
-  ++total_packet_count;
-
-  struct ip *iph = (struct ip*)buffer;
+  ++total_count;
+  
+  struct ethhdr *eth = (struct ethhdr*)buffer;
+  struct ip *iph = (struct ip*)(buffer + sizeof(eth) );
 
   switch(iph->ip_p){
-    case 1: // icmp protocol
-      ++icmp_count;
-      print_data(buffer, size);
-      break;
-    
-    case 2: // igmp protocol
-      ++igmp_count;
-      break;
-    
-    case 6: // tcp protocol
+    case IPPROTO_TCP: // TCP
       ++tcp_count;
       print_data(buffer, size);
       break;
-
-    case 17:  // udp protocol
+    
+    case IPPROTO_UDP: // UDP
       ++udp_count;
       print_data(buffer, size);
       break;
-
+    
     default:  // some other protocol
       ++other_count;
       break;
   }
 
-  printf("Packet count:\nICMP: %d IGMP: %d TCP: %d UDP: %d Others: %d\n",
-      icmp_count, igmp_count, tcp_count, udp_count, other_count);
-  printf("Total packets: %d\n", total_packet_count);
+  printf("Protocol count:\nTCP: %d UDP: %d Others: %d\n", tcp_count, udp_count, other_count);
+  printf("Total packets: %d\n", total_count);
 
 }
 
