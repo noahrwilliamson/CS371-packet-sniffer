@@ -61,7 +61,7 @@ int main(int argc, char** argv) {
   printf("Sniffing on device: %s\n", device_name); // print device
   
   // open device
-  handle = pcap_open_live(device_name, 65536, 1, 300000, errbuff);
+  handle = pcap_open_live(device_name, 65536, 1, 0, errbuff);
   if(handle == NULL){ // check for error in opening device for sniffing
     fprintf(stderr, "Could not open device %s: %s\n", device_name, errbuff);
     exit(1);
