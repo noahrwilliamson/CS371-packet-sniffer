@@ -1,13 +1,20 @@
 /*
  * sniffer.c
  *
- * Last edit: 03/21/2018
- * Authors: Noah Williamson, Robert Williams
+ * Last edit: 03/25/2018
+ * Author: Noah Williamson
  * Course: CS371
  * Project 1
+ *
+ * this sniffs ip packets over macos wifi device.
+ * this program has only been tested on macos, it
+ * may work on linux by modifying the device name
+ * to suit your purposes. other os are presumably
+ * unsupported. (note: after compilation, the 
+ * executable must be ran with root permissions)
  */
 
-#include <pcap.h> // libpcap library
+#include <pcap.h> // libpcap
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -15,15 +22,15 @@
 #include <arpa/inet.h>
 #include <netinet/ip.h>
 #include <net/ethernet.h>
-#include<netinet/ip_icmp.h>
-#include<netinet/udp.h>
-#include<netinet/tcp.h>
+#include <netinet/ip_icmp.h>
+#include <netinet/udp.h>
+#include <netinet/tcp.h>
 
 #define MAXSIZE 100
 
 /* FUNCTION PROTOTYPES */
 void got_packet(u_char *, const struct pcap_pkthdr *, const u_char *);
-//void print_tcp_packet(const u_char *, int);
+void print_tcp_info(const u_char *, int);
 //void print_udp_packet(const u_char *, int);
 //void print_icmp_packet(const u_char *, int);
 //void print_ethernet_header(const u_char *, int);
@@ -34,6 +41,7 @@ void print_data(const u_char *, int);
 FILE *logfile;
 struct sockaddr_in source, dest;
 int tcp_count = 0, udp_count = 0, other_count = 0, total_count = 0;
+int total_packet_size = 0, total_tcp_size = 0, total_udp_size = 0;
 
 /*
  * main function
@@ -78,6 +86,10 @@ int main(int argc, char** argv) {
   // start sniffing loop
   pcap_loop(handle, -1, got_packet, NULL);
   
+  // clean up
+  pcap_freecode(&fp);
+  pcap_close(handle);
+
   return 0;
 }
 
@@ -90,6 +102,7 @@ void got_packet(u_char *args, const struct pcap_pkthdr *header,
   int size = header->len; // packet size
   
   ++total_count;
+  total_packet_size += size; 
   
   struct ethhdr *eth = (struct ethhdr*)buffer;
   struct ip *iph = (struct ip*)(buffer + sizeof(eth) );
@@ -97,11 +110,14 @@ void got_packet(u_char *args, const struct pcap_pkthdr *header,
   switch(iph->ip_p){
     case IPPROTO_TCP: // TCP
       ++tcp_count;
-      print_data(buffer, size);
+      total_tcp_size += size; // update total size of all tcp packets
+
+      print_tcp_info(buffer, size); // source and destination port number
       break;
     
     case IPPROTO_UDP: // UDP
       ++udp_count;
+      total_udp_size += size; // update total size of all udp packets
       print_data(buffer, size);
       break;
     
@@ -165,26 +181,23 @@ void print_ip_header(const u_char * Buffer, int Size){
     fprintf(logfile , "   |-Source IP        : %s\n", inet_ntoa(source.sin_addr));
     fprintf(logfile , "   |-Destination IP   : %s\n", inet_ntoa(dest.sin_addr));
 }
+*/
 
-void print_tcp_packet(const u_char * Buffer, int Size){
+void print_tcp_info(const u_char *buffer, int size){
     unsigned short iphdrlen;
 
-    struct iphdr *iph = (struct iphdr *)( Buffer  + sizeof(struct ethhdr) );
-    iphdrlen = iph->ihl*4;
+    struct ethhdr *eth = (struct ethhdr*)buffer;
+    struct ip *iph = (struct ip*)(buffer + sizeof(eth));
+    iphdrlen = iph->ip_hl * 4;
 
-    struct tcphdr *tcph=(struct tcphdr*)(Buffer + iphdrlen + sizeof(struct ethhdr));
+    struct tcphdr *tcph=(struct tcphdr*)(buffer + iphdrlen + sizeof(eth));
 
-    int header_size =  sizeof(struct ethhdr) + iphdrlen + tcph->doff*4;
+    //int header_size =  sizeof(eth) + iphdrlen + tcph->doff*4;
 
-    fprintf(logfile , "\n***********************TCP Packet*************************\n");
-
-    print_ip_header(Buffer,Size);
-
-    fprintf(logfile , "\n");
-    fprintf(logfile , "TCP Header\n");
-    fprintf(logfile , "   |-Source Port      : %u\n",ntohs(tcph->source));
-    fprintf(logfile , "   |-Destination Port : %u\n",ntohs(tcph->dest));
-    fprintf(logfile , "   |-Sequence Number    : %u\n",ntohl(tcph->seq));
+    fprintf(logfile,"\n***********************TCP Packet %d*************************\n\n", tcp_count);
+    fprintf(logfile,"   |-Source Port      : %u\n", ntohs(tcph->th_sport));
+    fprintf(logfile,"   |-Destination Port : %u\n", ntohs(tcph->th_dport));
+    /*fprintf(logfile , "   |-Sequence Number    : %u\n",ntohl(tcph->seq));
     fprintf(logfile , "   |-Acknowledge Number : %u\n",ntohl(tcph->ack_seq));
     fprintf(logfile , "   |-Header Length      : %d DWORDS or %d BYTES\n" ,(unsigned int)tcph->doff,(unsigned int)tcph->doff*4);
     fprintf(logfile , "   |-Urgent Flag          : %d\n",(unsigned int)tcph->urg);
@@ -210,8 +223,11 @@ void print_tcp_packet(const u_char * Buffer, int Size){
     PrintData(Buffer + header_size , Size - header_size );
 
     fprintf(logfile , "\n\n\n");
+*/
+    fclose(logfile);
 }
 
+/*
 void print_udp_packet(const u_char *Buffer , int Size){
     unsigned short iphdrlen;
 
